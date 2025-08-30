@@ -1,0 +1,50 @@
+# Virtual environments
+venv/
+env/
+.venv/
+.ENV/
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*$py.class
+
+# Environment variables and configs
+.env
+.venv
+*.env
+.env.local
+
+# IDE and editor folders/files
+.vscode/
+.idea/
+*.sln
+*.suo
+*.ntvs*
+*.vspscc
+*.vscode/
+*.swp
+*.swo
+*.DS_Store
+
+# Node modules (if React uses npm/yarn)
+node_modules/
+npm-debug.log*
+yarn-error.log
+yarn-debug.log*
+
+# React build output (if you build React app)
+build/
+dist/
+
+# Sensitive or build files
+*.log
+*.bak
+*.tmp
+.DS_Store
+
+# Application-specific configs or files
+# (add any other specific folders or files you want to exclude)
