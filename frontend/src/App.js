@@ -1,40 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import './App.css'; // We'll create this for styling
+import './App.css';
 
 function App() {
-  const [features, setFeatures] = useState(Array(50).fill(0));
+  const [selectedLocation, setSelectedLocation] = useState("new_york");
+  const [locations, setLocations] = useState({});
   const [forecast, setForecast] = useState(null);
   const [anomaly, setAnomaly] = useState(null);
   const [alert, setAlert] = useState(null);
+  const [riskLevel, setRiskLevel] = useState("LOW");
+  const [currentWeather, setCurrentWeather] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+  const [dataSource, setDataSource] = useState("API");
+  const [avgFeature, setAvgFeature] = useState(null);
+  const [minFeature, setMinFeature] = useState(null);
+  const [maxFeature, setMaxFeature] = useState(null);
 
-  // Generate more realistic sensor data simulation
-  const generateRealisticData = () => {
-    const baseLevel = 5.0;
-    const newFeatures = Array(50).fill(0).map((_, i) => {
-      const trend = Math.sin(i * 0.1) * 2; // Sinusoidal trend
-      const noise = (Math.random() - 0.5) * 1.5; // Random noise
-      const timeEffect = i * 0.05; // Gradual increase over time
-      return Math.max(0, baseLevel + trend + noise + timeEffect);
-    });
-    setFeatures(newFeatures);
-  };
+  // Fetch available locations
+  useEffect(() => {
+    fetch('http://localhost:8000/locations')
+      .then(res => res.json())
+      .then(data => setLocations(data))
+      .catch(err => console.error('Error fetching locations:', err));
+  }, []);
 
-  // Fetch prediction from API
-  async function fetchPrediction() {
+  // Fetch live weather prediction
+  async function fetchLivePrediction() {
     setLoading(true);
     setError(null);
     
     try {
-      const inputData = { features };
-      
-      const response = await fetch('http://localhost:8000/predict/', {
+      const response = await fetch(`http://localhost:8000/predict-live/${selectedLocation}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inputData),
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
@@ -42,14 +42,21 @@ function App() {
       }
 
       const data = await response.json();
-      console.log("API response:", data);
+      console.log("Live API response:", data);
       
       setForecast(data.forecast);
       setAnomaly(data.anomaly);
       setAlert(data.alert);
+      setRiskLevel(data.risk_level);
+      setCurrentWeather(data.current_weather);
+      setDataSource(data.data_source);
       setLastUpdated(new Date().toLocaleTimeString());
+      setAvgFeature(data.average_feature);
+      setMinFeature(data.min_feature);
+      setMaxFeature(data.max_feature);
+      
     } catch (error) {
-      console.error('Prediction API error:', error);
+      console.error('Live prediction error:', error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -59,34 +66,21 @@ function App() {
   // Auto-refresh effect
   useEffect(() => {
     if (isAutoRefresh) {
-      fetchPrediction();
-      const interval = setInterval(() => {
-        generateRealisticData(); // Update sensor data
-        fetchPrediction();
-      }, 15000); // Every 15 seconds
-      
+      fetchLivePrediction();
+      const interval = setInterval(fetchLivePrediction, 30000); // Every 30 seconds
       return () => clearInterval(interval);
     }
-  }, [isAutoRefresh, features]);
+  }, [isAutoRefresh, selectedLocation]);
 
   // Manual refresh
   const handleManualRefresh = () => {
-    generateRealisticData();
-    fetchPrediction();
-  };
-
-  // Risk level determination
-  const getRiskLevel = () => {
-    if (alert) return 'high';
-    if (forecast > 8) return 'medium';
-    return 'low';
+    fetchLivePrediction();
   };
 
   const getRiskColor = () => {
-    const level = getRiskLevel();
-    switch(level) {
-      case 'high': return '#dc3545';
-      case 'medium': return '#ffc107';
+    switch(riskLevel) {
+      case 'HIGH': return '#dc3545';
+      case 'MEDIUM': return '#ffc107';
       default: return '#28a745';
     }
   };
@@ -94,8 +88,21 @@ function App() {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <h1>🌊 BlueShied</h1>
+        <h1>🌊 BlueShield - Live Weather Monitoring</h1>
         <div className="header-controls">
+          <select 
+              value={selectedLocation} 
+              onChange={(e) => setSelectedLocation(e.target.value)}
+              className="location-selector"
+            >
+              {Object.keys(locations).length === 0 ? (
+                <option>Loading...</option>
+              ) : (
+                Object.entries(locations).map(([id, location]) => (
+                  <option key={id} value={id}>{location.name}</option>
+                ))
+              )}
+        </select>
           <button 
             onClick={handleManualRefresh} 
             disabled={loading}
@@ -109,7 +116,7 @@ function App() {
               checked={isAutoRefresh}
               onChange={(e) => setIsAutoRefresh(e.target.checked)}
             />
-            Auto-refresh (15s)
+            Auto-refresh (30s)
           </label>
         </div>
       </header>
@@ -119,7 +126,7 @@ function App() {
         <div className="status-cards">
           <div className="card forecast-card">
             <div className="card-header">
-              <h3>📊 Water Level Forecast</h3>
+              <h3>📊 Flood Risk Forecast</h3>
             </div>
             <div className="card-content">
               <div className="main-value">
@@ -127,21 +134,21 @@ function App() {
                   <div className="loading-spinner">Loading...</div>
                 ) : forecast !== null ? (
                   <span className="forecast-value">
-                    {forecast.toFixed(2)} m
+                    {forecast.toFixed(2)} 
                   </span>
                 ) : (
                   <span className="no-data">No data</span>
                 )}
               </div>
               <div className="card-footer">
-                Next 1-hour prediction
+                Flood risk index (0-10)
               </div>
             </div>
           </div>
 
           <div className="card anomaly-card">
             <div className="card-header">
-              <h3>⚠️ Anomaly Detection</h3>
+              <h3>⚠️ Weather Anomaly</h3>
             </div>
             <div className="card-content">
               <div className="main-value">
@@ -156,7 +163,7 @@ function App() {
                 )}
               </div>
               <div className="card-footer">
-                Current sensor reading
+                Weather pattern analysis
               </div>
             </div>
           </div>
@@ -168,15 +175,57 @@ function App() {
             <div className="card-content">
               <div className="main-value">
                 <span 
-                  className={`risk-level risk-${getRiskLevel()}`}
+                  className={`risk-level risk-${riskLevel.toLowerCase()}`}
                   style={{ color: getRiskColor() }}
                 >
-                  {getRiskLevel().toUpperCase()}
+                  {riskLevel}
                 </span>
               </div>
               <div className="card-footer">
                 Overall assessment
               </div>
+            </div>
+          </div>
+
+          <div className="card avg-card">
+            <div className="card-header">
+              <h3>📈 Average</h3>
+            </div>
+            <div className="card-content">
+              <div>
+                {typeof avgFeature === "number" ? avgFeature.toFixed(2) : "No data"}
+              </div>
+            </div>
+            <div className="card-footer">
+              Average of latest forecast features
+            </div>
+          </div>
+
+          <div className="card min-card">
+            <div className="card-header">
+              <h3>📉 Min</h3>
+            </div>
+            <div className="card-content">
+              <div>
+                {typeof minFeature === "number" ? minFeature.toFixed(2) : "No data"}
+              </div>
+            </div>
+            <div className="card-footer">
+              Minimum of latest forecast features
+            </div>
+          </div>
+
+          <div className="card max-card">
+            <div className="card-header">
+              <h3>📊 Max Feature</h3>
+            </div>
+            <div className="card-content">
+              <div>
+                {typeof maxFeature === "number" ? maxFeature.toFixed(2) : "No data"}
+              </div>
+            </div>
+            <div className="card-footer">
+              Maximum of latest forecast features
             </div>
           </div>
         </div>
@@ -204,31 +253,34 @@ function App() {
           </div>
         )}
 
-        {/* Current Sensor Data Preview */}
-        <div className="sensor-preview">
-          <h3>📡 Recent Sensor Readings</h3>
-          <div className="sensor-data">
-            <div className="sensor-summary">
-              <div>
-                <strong>Latest Reading:</strong> {features[features.length - 1]?.toFixed(2)} m
-              </div>
-              <div>
-                <strong>Average (Last 10):</strong>
-                {(features.slice(-10).reduce((a, b) => a + b, 0) / 10).toFixed(2)} m
-
-              </div>
-              <div>
-                <strong>Min/Max:</strong> {Math.min(...features).toFixed(2)} / {Math.max(...features).toFixed(2)} m
+        {/* Current Weather Data */}
+        {currentWeather && (
+          <div className="weather-preview">
+            <h3>🌤️ Current Weather Conditions</h3>
+            <div className="weather-data">
+              <div className="weather-summary">
+                <div>
+                  <strong>Conditions:</strong> {currentWeather.description}
+                </div>
+                <div>
+                  <strong>Pressure:</strong> {currentWeather.pressure} hPa
+                </div>
+                <div>
+                  <strong>Wind Speed:</strong> {currentWeather.wind_speed} m/s
+                </div>
+                <div>
+                  <strong>Humidity:</strong> {currentWeather.humidity}%
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Status Footer */}
         <footer className="dashboard-footer">
           <div className="status-info">
             <span>
-              🟢 API Connected | 
+              🟢 Live Data from {dataSource} | 
               Last Updated: {lastUpdated || 'Never'} |
               {isAutoRefresh ? ' Auto-refresh: ON' : ' Auto-refresh: OFF'}
             </span>
