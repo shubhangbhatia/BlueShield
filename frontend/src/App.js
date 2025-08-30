@@ -213,9 +213,9 @@ function App() {
                 <strong>Latest Reading:</strong> {features[features.length - 1]?.toFixed(2)} m
               </div>
               <div>
-                <strong>Average (Last 10):</strong> {
-                  features.slice(-10).reduce((a, b) => a + b, 0) / 10
-                }.toFixed(2)
+                <strong>Average (Last 10):</strong>
+                {(features.slice(-10).reduce((a, b) => a + b, 0) / 10).toFixed(2)} m
+
               </div>
               <div>
                 <strong>Min/Max:</strong> {Math.min(...features).toFixed(2)} / {Math.max(...features).toFixed(2)} m
